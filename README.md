@@ -1,1 +1,0 @@
-# smart-plant-dashboard
