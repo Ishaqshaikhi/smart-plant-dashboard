@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>🌿 Smart Plant IoT — Ishaq Hasan Shaikh</title>
+
+  <!-- Fonts + Chart.js -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#071026; --card:#0f1b2b; --accent:#6fe7d1; --muted:#9fb2bf;
+      --good:#7be495; --warn:#ffd166; --bad:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:12px; font-family:"Poppins",Inter,Arial,sans-serif; color:#eaf6f8;
+      background: linear-gradient(180deg,#04121a 0%, #071026 60%);
+      -webkit-font-smoothing:antialiased;
+    }
+
+    /* Header */
+    .header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .title{display:flex;align-items:center;gap:12px}
+    .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#4bd6c7);display:flex;align-items:center;justify-content:center;font-weight:800;color:#002831}
+    h1{margin:0;font-size:1.25rem;color:var(--accent);letter-spacing:0.2px}
+    .small{font-size:0.92rem;color:var(--muted)}
+
+    /* Controls */
+    .controls{display:flex;gap:8px;align-items:center}
+
+    /* Grid */
+    .grid{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px;justify-content:center}
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+      padding:16px;border-radius:14px;min-width:220px;box-shadow:0 12px 30px rgba(0,0,0,0.6);
+      border:1px solid rgba(255,255,255,0.02);
+    }
+    .tile{text-align:center;min-width:220px}
+    .big{font-size:1.7rem;font-weight:800;margin-top:8px}
+    .trend{font-size:0.85rem;color:var(--muted);margin-top:6px}
+
+    /* Soil gauge + status */
+    .gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-top:8px}
+    .gauge-value{font-weight:800;font-size:1.2rem;margin-top:6px}
+    .status-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;font-weight:700}
+    .status-dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+
+    /* Chart area */
+    .plot{max-width:980px;margin:20px auto;padding:14px;border-radius:12px}
+    .chart-card{padding:10px;border-radius:12px;background:linear-gradient(180deg, rgba(0,0,0,0.05), transparent)}
+
+    /* Buttons row */
+    .buttons{display:flex;gap:10px;justify-content:center;margin-top:14px}
+    button{background:var(--accent);border:none;padding:10px 14px;border-radius:10px;color:#002831;cursor:pointer;font-weight:700}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
+    .debug{font-family:monospace;background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;color:#cfeee6;white-space:pre-wrap;max-height:160px;overflow:auto;margin-top:12px}
+
+    /* Footer */
+    .footer{margin-top:18px;text-align:center;color:var(--muted);font-size:0.9rem}
+
+    /* Responsive */
+    @media(max-width:820px){
+      .grid{flex-direction:column;align-items:center}
+      .plot{width:100%}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="title">
+      <div class="logo">IoT</div>
+      <div>
+        <h1>Smart Soil and Plant Care IoT System</h1>
+        <div class="small">Live dashboard — shareable URL / CSV</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div id="last" class="small">Last update: —</div>
+      <button id="share" class="ghost">Copy page URL</button>
+    </div>
+  </div>
+
+  <!-- Profile row -->
+  <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap">
+    <div class="small">Wilson College — IT Department</div>
+    <div style="text-align:right">
+      <div style="font-weight:800">Ishaq Hasan Shaikh</div>
+      <div class="small">Roll No: 2425-BSCIT34-060</div>
+      <div class="small" id="today">—</div>
+    </div>
+  </div>
+
+  <!-- Numeric cards -->
+  <div class="grid" style="margin-top:18px;">
+    <div class="card tile">
+      <div class="small">Temperature</div>
+      <div id="T" class="big">— °C</div>
+      <div id="Ttrend" class="trend">—</div>
+    </div>
+
+    <div class="card tile">
+      <div class="small">Humidity</div>
+      <div id="H" class="big">— %</div>
+      <div id="Htrend" class="trend">—</div>
+    </div>
+
+    <div class="card tile" id="soilCard">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="small">Soil Moisture</div>
+          <div id="S" class="big">— %</div>
+        </div>
+        <div>
+          <div id="soilStatus" class="status-badge" style="background:transparent;color:var(--muted)">
+            <span class="status-dot" style="background:#999"></span>
+            <span id="soilStatusText">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="gauge-wrap">
+        <canvas id="soilGauge" width="160" height="100"></canvas>
+        <div class="gauge-value small" id="gaugeText">—</div>
+      </div>
+      <div id="Strend" class="trend">—</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="plot card chart-card">
+    <canvas id="mainChart" width="900" height="300"></canvas>
+  </div>
+
+  <!-- Buttons -->
+  <div class="buttons">
+    <button id="download">Download CSV</button>
+    <button id="refresh" class="ghost">Refresh now</button>
+    <button id="toggleDebug" class="ghost">Show debug log</button>
+  </div>
+
+  <div id="debugBlock" style="display:none">
+    <div id="debug" class="debug">debug log</div>
+  </div>
+
+  <div class="footer small">Polling interval: <span id="pollIntervalText">5s</span></div>
+
+  <script type="module">
+  // ---------- CONFIG ----------
+  const DATABASE_URL = "https://smart-plant-iot-system-4a68c-default-rtdb.asia-southeast1.firebasedatabase.app";
+  const DB_PATH = "plants/plant1/latest"; // adjust if needed
+  const POLL_MS = 2000;   // 5 seconds
+  const MAX_POINTS = 120;
+  // ----------------------------
+
+  // UI init
+  document.getElementById('today').innerText = (new Date()).toLocaleDateString('en-IN', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+  document.getElementById('pollIntervalText').innerText = (POLL_MS/1000) + 's';
+
+  // firebase modular imports
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  const firebaseConfig = { databaseURL: DATABASE_URL };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // chart setup (main)
+  const mainCtx = document.getElementById('mainChart').getContext('2d');
+  const mainChart = new Chart(mainCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label:'Temperature (°C)', data: [], borderColor:'#ff9f43', backgroundColor:'rgba(255,159,67,0.06)', tension:0.25, pointRadius:4, pointHoverRadius:7, pointBackgroundColor:[] },
+        { label:'Humidity (%)', data: [], borderColor:'#00bcd4', backgroundColor:'rgba(0,188,212,0.04)', tension:0.25, pointRadius:4, pointHoverRadius:7, pointBackgroundColor:[] },
+        { label:'Soil (%)', data: [], borderColor:'#7be495', backgroundColor:'rgba(123,228,149,0.04)', tension:0.25, pointRadius:5, pointHoverRadius:8, pointBackgroundColor:[] }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#cfeee6' } },
+        tooltip: {
+          callbacks: {
+            // custom tooltip to show dataset values with label
+            title: (items) => items[0].label,
+            label: (item) => `${item.dataset.label}: ${item.formattedValue}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#9fb2bf' } },
+        y: { ticks: { color: '#9fb2bf' } }
+      }
+    }
+  });
+
+  // gauge (doughnut)
+  const gaugeCtx = document.getElementById('soilGauge').getContext('2d');
+  const gauge = new Chart(gaugeCtx, {
+    type:'doughnut',
+    data:{ labels:['soil','rest'], datasets:[{ data:[50,50], backgroundColor:['#7be495','rgba(255,255,255,0.06)'], borderWidth:0 }] },
+    options:{ cutout:'72%', responsive:false, plugins:{ legend:{display:false}, tooltip:{enabled:false}} }
+  });
+
+  // history
+  let history = []; // {ts,temp,hum,soil}
+
+  // debug log helper
+  function logDebug(s){
+    const d = document.getElementById('debug');
+    d.textContent = '[' + new Date().toLocaleTimeString() + '] ' + s + "\n" + d.textContent;
+  }
+
+  // soil status helper
+  function setSoilStatus(soil){
+    const dot = document.querySelector('#soilStatus .status-dot');
+    const txt = document.getElementById('soilStatusText');
+    const badge = document.getElementById('soilStatus');
+    if(soil < 25){
+      dot.style.background = getComputedStyle(document.documentElement).getPropertyValue('--bad');
+      txt.innerText = 'DRY (<25%)';
+      badge.style.background = 'rgba(255,107,107,0.08)';
+      badge.style.color = 'var(--bad)';
+      document.getElementById('soilCard').style.boxShadow = '0 12px 40px rgba(231,76,60,0.06)';
+    } else if(soil < 60){
+      dot.style.background = getComputedStyle(document.documentElement).getPropertyValue('--warn');
+      txt.innerText = 'OK (25–60%)';
+      badge.style.background = 'rgba(255,193,102,0.06)';
+      badge.style.color = 'var(--warn)';
+      document.getElementById('soilCard').style.boxShadow = '0 12px 40px rgba(255,193,7,0.06)';
+    } else {
+      dot.style.background = getComputedStyle(document.documentElement).getPropertyValue('--good');
+      txt.innerText = 'WET (≥60%)';
+      badge.style.background = 'rgba(123,228,149,0.06)';
+      badge.style.color = 'var(--good)';
+      document.getElementById('soilCard').style.boxShadow = '0 12px 40px rgba(46,204,113,0.06)';
+    }
+  }
+
+  // push a reading into UI & chart
+  function pushPoint(pt){
+    const ts = new Date().toLocaleTimeString('en-IN');
+    history.push({ts, temp:pt.temp, hum:pt.hum, soil:pt.soil});
+    if(history.length > MAX_POINTS) history.shift();
+
+    // update numeric cards
+    document.getElementById('T').innerText = (isNaN(pt.temp) ? '--' : pt.temp.toFixed(1) + ' °C');
+    document.getElementById('H').innerText = (isNaN(pt.hum) ? '--' : pt.hum.toFixed(1) + ' %');
+    document.getElementById('S').innerText = (isNaN(pt.soil) ? '--' : pt.soil.toFixed(1) + ' %');
+    document.getElementById('last').innerText = 'Last update: ' + ts;
+    document.getElementById('gaugeText').innerText = Math.round(pt.soil) + '%';
+
+    // set status & glow
+    setSoilStatus(pt.soil);
+
+    // trends
+    const last = history[history.length-1];
+    const prev = history[history.length-2] || last;
+    function trend(cur, prev, unit) {
+      const d = cur - prev;
+      const arrow = d > 0.15 ? '↑' : (d < -0.15 ? '↓' : '→');
+      return arrow + ' ' + (d>=0?'+':'') + d.toFixed(1) + ' ' + unit;
+    }
+    document.getElementById('Ttrend').innerText = trend(last.temp, prev.temp, '°C');
+    document.getElementById('Htrend').innerText = trend(last.hum, prev.hum, '%');
+    document.getElementById('Strend').innerText = trend(last.soil, prev.soil, '%');
+
+    // chart data & per-point colors
+    mainChart.data.labels = history.map(h => h.ts);
+    mainChart.data.datasets[0].data = history.map(h => h.temp);
+    mainChart.data.datasets[1].data = history.map(h => h.hum);
+    mainChart.data.datasets[2].data = history.map(h => h.soil);
+
+    // set per-point background color for soil dataset to show dry/wet points
+    mainChart.data.datasets[2].pointBackgroundColor = history.map(h => {
+      if (h.soil < 25) return '#ff6b6b';
+      if (h.soil < 60) return '#ffd166';
+      return '#7be495';
+    });
+
+    // optionally set small colored points for other datasets for readability
+    mainChart.data.datasets[0].pointBackgroundColor = history.map(() => '#ff9f43');
+    mainChart.data.datasets[1].pointBackgroundColor = history.map(() => '#00bcd4');
+
+    mainChart.update();
+
+    // gauge
+    gauge.data.datasets[0].data[0] = pt.soil;
+    gauge.data.datasets[0].data[1] = Math.max(0, 100 - pt.soil);
+    gauge.update();
+  }
+
+  // fetch one reading from Firebase REST (modular get)
+  async function fetchNow(){
+    const pathRef = child(ref(db), DB_PATH);
+    try{
+      const snap = await get(pathRef);
+      if(!snap.exists()){
+        logDebug('No data at ' + DB_PATH);
+        return;
+      }
+      const j = snap.val();
+      // parse numbers
+      const t = (typeof j.temp === 'number') ? j.temp : (parseFloat(j.temp) || NaN);
+      const h = (typeof j.hum === 'number') ? j.hum : (parseFloat(j.hum) || NaN);
+      const s = (typeof j.soil === 'number') ? j.soil : (parseFloat(j.soil) || NaN);
+      pushPoint({temp: t, hum: h, soil: s});
+      // show raw in debug only if visible
+      if(document.getElementById('debugBlock').style.display !== 'none') logDebug('raw: ' + JSON.stringify(j));
+    } catch(err){
+      logDebug('fetch error: ' + err.message);
+    }
+  }
+
+  // CSV download
+  document.getElementById('download').onclick = () => {
+    let csv = 'time,temp,hum,soil\n';
+    history.forEach(r => csv += `${r.ts},${r.temp},${r.hum},${r.soil}\n`);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.download = 'plant_history.csv';
+    a.click();
+  };
+
+  // manual refresh
+  document.getElementById('refresh').onclick = fetchNow;
+
+  // debug toggle
+  document.getElementById('toggleDebug').onclick = () => {
+    const block = document.getElementById('debugBlock');
+    block.style.display = (block.style.display === 'none') ? 'block' : 'none';
+    document.getElementById('toggleDebug').innerText = (block.style.display === 'none') ? 'Show debug log' : 'Hide debug log';
+  };
+
+  // share the page
+  document.getElementById('share').onclick = () => {
+    navigator.clipboard.writeText(location.href).then(()=>alert('URL copied to clipboard'));
+  };
+
+  // start polling
+  fetchNow();
+  setInterval(fetchNow, POLL_MS);
+
+  </script>
+
+</body>
+</html>
